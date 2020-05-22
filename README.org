@@ -1,0 +1,14 @@
+* Report
+** TODO Describe the q-learning and DQL model (pros. cons. and why I’m not using it for the simulation)
+** TODO A2C algorithm (probably gonna be used in the program)
+** TODO NN backpropogation calculations
+** TODO NN performance comparison with Keras or scikit-learn
+* Q-Learning example
+  Example to understand q-learning algorithm. The problem was found in the article: https://blog.valohai.com/reinforcement-learning-tutorial-part-1-q-learning
+
+** Program usage
+In the problem, agent learns to find the most valuable position by using q-learning algorithm.
+
+** Decay
+Exponential decay function was used to decrease agent’s chances of exploring (gambling).
+* Neural network
