@@ -1,0 +1,7 @@
+* Dependencies
+*** Pytorch
+https://pytorch.org/
+*** Pygame
+https://www.pygame.org/wiki/GettingStarted
+*** NumPy
+https://scipy.org/install.html
