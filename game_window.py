@@ -9,31 +9,33 @@ import math
 import time
 from train import Train
 
-window_width = 960
-window_height = 650
+window_width = 1200
+window_height = 800
 
 class App:
-
+    graphics = 1
     global window_width
     global window_height
     count = 0
     millis = int(round(time.time() * 1000))
-    agents_number = 10
-    foob_number = 100
+    agents_number = 15
+    foob_number = 200
+    action_size = 4
+    range_x = 8
+    range_y = 8
+    state_size = range_x * 2 * range_y * 2
 
     object_list = []
 
     MAX_SPEED = 60      #pixels per second
 
     def __init__(self):
+
         self._display_surf = None
         self.size = self.width, self.height = window_width, window_height
         self.eaten_foob = 0
         self.on_init()
-        self.clock = GameClock(
-            max_ups=3000, max_fps=256,
-            update_callback = self.on_update,
-            frame_callback=self.on_render)
+        self.multinit()
 
     def count_fps(self):
         self.count += 1
@@ -68,8 +70,6 @@ class App:
                     self.dead.append(self.object_list[i])
                     self.dones[self.object_list[i].agentid] = 1
 
-        # for i in dead:
-        #     self.object_list.remove(i)
 
     def update_objects(self, dt):
         for obj1 in self.object_list:
@@ -81,7 +81,6 @@ class App:
         for obj2 in self.object_list:
             if((obj1 is not obj2) and obj1.collides(obj2)):
                 obj1.on_collide(obj2)
-                obj2.on_collide(obj1)
 
     def draw_objects(self):
         for obj in self.object_list:
@@ -101,25 +100,36 @@ class App:
             else:
                 self.foob_list.append(self.object_list[i])
 
+    def printmap(self, grid):
+        for i in range(self.range_x*2):
+            for j in range(self.range_y*2):
+                if int(grid[i][j]) == 2:
+                    k = "X"
+                elif int(grid[i][j]) == 1:
+                    k = "o"
+                else:
+                    k = "."
+                print(f"{k} ", end="")
+            print("")
+        print("")
+
     def grid_build(self):
         grid = []
-        range_x = 10
-        range_y = 10
         for i in range(len(self.agent_list)):
-            rel_map = np.zeros((range_x * 2, range_y * 2))
+            rel_map = np.zeros((self.range_x * 2, self.range_y * 2))
             for j in range(len(self.foob_list)):
-                rel_x = int(self.foob_list[j].position.x/10 - self.agent_list[i].position.x/10)
-                rel_y = int(self.foob_list[j].position.y/10 - self.agent_list[i].position.y/10)
-                if abs(rel_x) < range_x and abs(rel_y) < range_y:
-                    rel_map[rel_x][rel_y] = 1
-
+                rel_x = int(self.foob_list[j].position.x/10) - int(self.agent_list[i].position.x/10)
+                rel_y = int(self.foob_list[j].position.y/10) - int(self.agent_list[i].position.y/10)
+                if abs(rel_x) < self.range_x and abs(rel_y) < self.range_y:
+                    rel_map[rel_y+self.range_y][rel_x+self.range_x] += 1
             grid.append(rel_map.reshape(-1))
         return np.array(grid)
         
     def set_actions(self, actions):
-         for i in range(len(self.object_list)):
-             if type(self.object_list[i]) == Agent:
-                 self.object_list[i].set_action(Point(actions[i][0], actions[i][1]))
+        for i in range(len(self.object_list)):
+            if type(self.object_list[i]) == Agent:
+                acts = actions[i].tolist()[0]
+                self.object_list[i].set_action(Point(acts[0]-acts[1], acts[2]-acts[3]))
 
     def get_rewards(self):
         r = []
@@ -129,12 +139,13 @@ class App:
         return np.array(r)
         
     def on_init(self):
-        pygame.init()
-        self._display_surf = pygame.display.set_mode(self.size, pygame.HWSURFACE | pygame.DOUBLEBUF)
-        pygame.font.init()
+        if self.graphics == 1:
+            pygame.init()
+            self._display_surf = pygame.display.set_mode(self.size, pygame.HWSURFACE | pygame.DOUBLEBUF)
+            pygame.font.init()
+            self.myfont = pygame.font.SysFont('Comic Sans MS', 12)
+            self.textsurface = self.myfont.render(str(self.count), False, (0, 0, 255))
         self.generate_objects()
-        self.myfont = pygame.font.SysFont('Comic Sans MS', 12)
-        self.textsurface = self.myfont.render(str(self.count), False, (0, 0, 255))
 
     def on_event(self):
         for e in pygame.event.get():
@@ -142,49 +153,94 @@ class App:
                 self.on_cleanup()
 
     def on_update(self, dt):
-        self.on_event()
-        self.keyboard_input()
+        if self.graphics == 1:
+            self.on_event()
+            self.keyboard_input()
         self.update_objects(dt)
 
     def on_render(self, interp):
-        self._display_surf.fill((255, 255, 255))
-        self.draw_objects()
-        self.count_fps()
-        pygame.display.update()
+        if self.graphics == 1:
+            self._display_surf.fill((255, 255, 255))
+            self.draw_objects()
+            self.count_fps()
+            pygame.display.update()
 
     def on_cleanup(self):
         pygame.quit()
         quit()
 
     def run(self):
-        ssize = 400
-        asize = 2
-        numa = self.agents_number
-        train_obj = Train(state_size = ssize, action_size = asize, agent_size = numa)
 
         while 1:
             tiks = 0
-            train_obj.before_episodes()
+            self.train_obj.before_episodes()
             self.generate_objects()
-            while tiks < 90 and len(self.dead) < 1:
+            while tiks < 300 and len(self.dead) < 1:
                 not_dones = [1-done for done in self.dones]
                 grid = self.grid_build()
-                actions = train_obj.get_action(grid)
+                actions, log_probs, state_values = self.train_obj.get_action(grid)
                 self.set_actions(actions.tolist())
 
-                self.clock.tick()
+                #self.clock.tick()
+                self.on_update(1)
+                self.on_render(1)
 
-                grid = self.grid_build()
                 rewards = self.get_rewards()
-                train_obj.train_step(grid, rewards, not_dones)
+                self.train_obj.train_step(grid, rewards, not_dones, log_probs, state_values, actions)
                 tiks += 1
 
             # ep ended
-            train_obj.after_episode()
+            self.train_obj.after_episode()
+            print(self.eaten_foob)
+            self.eaten_foob = 0
+            
+    brains = []
+
+    def multinit(self):
+        for i in range(self.agents_number):
+            self.brains.append(Train(state_size = self.state_size, action_size = self.action_size, agent_size = 1, brain_id = i))
+        
+            
+    def run_multiple_brain(self):
+
+        while 1:
+            tiks = 0
+            for brain in self.brains:
+                brain.before_episodes()
+            self.generate_objects()
+            while tiks < 600 and len(self.dead) < self.agents_number:
+                not_dones = [1-done for done in self.dones]
+                not_dones_mult = [[x] for x in not_dones]
+                grid = self.grid_build()
+                grid_mult = [np.array([x]) for x in grid]
+
+                actions = []
+                log_probs = []
+                state_values = []
+                for i, brain in enumerate(self.brains):
+                    acts, logs, states = brain.get_action(grid_mult[i])
+                    actions.append(acts)
+                    log_probs.append(logs)
+                    state_values.append(states)
+                self.set_actions(actions)
+
+                #self.clock.tick()
+                self.on_update(1)
+                self.on_render(1)
+
+                rewards = self.get_rewards()
+                rewards_mult = [[x] for x in rewards]
+                for i, brain in enumerate(self.brains):
+                    brain.train_step(grid_mult[i], rewards_mult[i], not_dones_mult[i], log_probs[i], state_values[i], actions[i])
+                tiks += 1
+
+            # ep ended
+            for brain in self.brains:
+                brain.after_episode()
             print(self.eaten_foob)
             self.eaten_foob = 0
 
 
 if __name__ == "__main__":
     theApp = App()
-    theApp.run()
+    theApp.run_multiple_brain()

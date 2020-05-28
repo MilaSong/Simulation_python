@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
     
-torch.manual_seed(999)
+#torch.manual_seed(999)
 
 def hidden_init(layer):
     """
@@ -20,21 +20,25 @@ class ActorCriticNetwork(nn.Module):
     """
     def __init__(self, state_dim, action_dim):
         super(ActorCriticNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 64)
         
-        # Actor head: output mean and std
-        self.actor_fc = nn.Linear(64, 64)
-        self.actor_fc2 = nn.Linear(64, 64)
-        self.actor_fc3 = nn.Linear(64, 64)
-        self.actor_out = nn.Linear(64, action_dim)
+        self.hiddenlayers = 2
+        hl_size = 8
+        self.actorhl = []
+        self.critichl = []
+
+        self.fc1 = nn.Linear(state_dim, int(state_dim/2))
+        self.fc2 = nn.Linear(int(state_dim/2), hl_size)
+
         
+        for i in range(self.hiddenlayers):
+            self.actorhl.append(nn.Linear(hl_size, hl_size))
+
+        for i in range(self.hiddenlayers):
+            self.critichl.append(nn.Linear(hl_size, hl_size))
+            
+        self.actor_out = nn.Linear(hl_size, action_dim)
         self.std = nn.Parameter(torch.ones(1, action_dim))
-        
-        # critic head: output state value
-        self.critic_fc = nn.Linear(64, 64)
-        self.critic_fc2 = nn.Linear(64, 64)
-        self.critic_fc3 = nn.Linear(64, 64)
-        self.critic_out = nn.Linear(64, 1)
+        self.critic_out = nn.Linear(hl_size, 1)
         self.reset_parameters()
         
     def forward(self, state):
@@ -44,26 +48,40 @@ class ActorCriticNetwork(nn.Module):
         Output: tuple of (clampped action, log probabilities, state values)
         """
         x = F.relu(self.fc1(state))
-        #mean = self.actor_out(F.relu(self.actor_fc(x)))
-        mean = self.actor_out(F.relu(self.actor_fc3(F.relu(self.actor_fc2(F.relu(self.actor_fc(x)))))))
+        x1 = F.relu(self.fc2(x))
+
+        act = F.relu(self.actorhl[0](x1))
+        for i in range(1, len(self.actorhl)):
+            act = self.actorhl[i](act)
+            act = F.relu(act)
+
+        mean = self.actor_out(act)
+            
         dist = torch.distributions.Normal(mean, self.std)
         action = dist.sample()
         log_prob = dist.log_prob(action)
-        #value = self.critic_out(F.relu(self.critic_fc(x)))
-        value = self.critic_out(F.relu(self.critic_fc3(F.relu(self.critic_fc2(F.relu(self.critic_fc(x)))))))
-        return torch.clamp(action, -1, 1), log_prob, value
+
+
+        crit = self.critichl[0](x1)
+        for i in range(1, len(self.critichl)):
+            crit = self.critichl[i](crit)
+            crit = F.relu(crit)
+        value = self.critic_out(crit)
+        
+        return action, log_prob, value
     
     def reset_parameters(self):
         """
         Reset parameters to the initial states
         """
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
-        self.actor_fc.weight.data.uniform_(*hidden_init(self.actor_fc))
-        self.actor_fc2.weight.data.uniform_(*hidden_init(self.actor_fc2))
-        self.actor_fc3.weight.data.uniform_(*hidden_init(self.actor_fc3))
-        self.critic_fc.weight.data.uniform_(*hidden_init(self.critic_fc))
-        self.critic_fc2.weight.data.uniform_(*hidden_init(self.critic_fc2))
-        self.critic_fc3.weight.data.uniform_(*hidden_init(self.critic_fc3))
+        for i in range(len(self.critichl)):
+            self.critichl[i].weight.data.uniform_(*hidden_init(self.critichl[i]))
+        for i in range(len(self.actorhl)):
+            self.actorhl[i].weight.data.uniform_(*hidden_init(self.actorhl[i]))
+
+        
+        
         self.actor_out.weight.data.uniform_(-3e-3, 3e-3)
         self.critic_out.weight.data.uniform_(-3e-3, 3e-3)
 

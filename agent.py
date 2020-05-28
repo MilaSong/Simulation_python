@@ -13,9 +13,9 @@ class ACAgent:
     def __init__(self,
                  state_dim,                 # dimension of the state vector
                  action_dim,                # dimension of the action vector
-                 num_envs,                  # number of parallel agents 
+                 num_envs,                  # number of parallel agents (20 in this experiment)
                  rollout_length=5,          # steps to sample before bootstraping
-                 lr=1e-2,                   # learning rate
+                 lr=1e-3,                   # learning rate
                  lr_decay=.95,              # learning rate decay rate
                  gamma=.99,                 # reward discount rate
                  value_loss_weight = 1.0,   # strength of value loss

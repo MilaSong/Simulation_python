@@ -27,15 +27,16 @@ class GameObject:
         dist = math.sqrt((distx ** 2) + (disty ** 2))
         # vienetinio vektoriaus koordinates
         if(dist < 1):
-            return
+            return -dist
         vx = (dest.x-self.position.x)/dist
         vy = (dest.y-self.position.y)/dist
         # jei maziau nei 1 dist, neinam
 
-        mx = vx * dt * self.speed
-        my = vy * dt * self.speed
+        mx = vx * 0.02 * self.speed
+        my = vy * 0.02 * self.speed
         self.position.x += mx if abs(mx) < abs(distx) else distx
         self.position.y += my if abs(my) < abs(disty) else disty
+        return dist
 
     def collides(self, obj2):
         xcollides = False
@@ -58,14 +59,14 @@ class GameObject:
 
 class Agent(GameObject):
 
+    ate = 0
     agentid = 0
     
     def __init__(self, movesize, pos, color, window_width, window_height, agentid):
         super().__init__(movesize, pos, color, window_width, window_height, 2)
-        self.hunger = 500
+        self.hunger = 300
         self.agentid = agentid
         self.goal = Point(randint(0, window_width), randint(0, window_height))
-        self.previous_hunger = self.hunger
 
     @staticmethod
     def generate_rand_agent(window_width, window_height, agentid):
@@ -101,26 +102,26 @@ class Agent(GameObject):
         pass
     
     def set_action(self, goal):      
-        self.goal = self.position
+        self.goal = Point(self.position.x, self.position.y)
         self.goal.shift(goal.x*10, goal.y*10)
 
     def get_reward(self):
-        if self.previous_hunger < self.hunger:
-            return 1
-        elif self.previous_hunger >= self.hunger:
-            return -0.1
+        tempvar = self.ate
+        self.ate = 0
+        return tempvar
             
     
     def on_collide(self, who):
         if(type(who) is Foob):
+            self.ate += 1
             self.hunger += who.nutrition
             self.color = (255, 0, 0)
 
     def update(self, dt, object_list):
-        self.previous_hunger = self.hunger
         self.think(object_list)
         self.move(dt)
-        self.hunger -= dt * 50
+        self.hunger -= 1
+        #self.hunger -= 50 * dt
         if self.hunger < 0:
             self.alive = False
 
